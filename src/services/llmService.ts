@@ -3,8 +3,6 @@ import { buildEvaluationPrompt } from '../utils/prompts';
 import { parseEvaluationResponse } from '../utils/scoring';
 import { buildInsightStructuringPrompt, buildQuizCardGenerationPrompt, buildExpertAnalysisPrompt, buildComparisonPrompt, buildDictationParsePrompt, VALID_CATEGORIES } from '../utils/insightPrompts';
 
-const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
-
 // Helper to strip markdown code blocks from LLM responses
 function stripMarkdownCodeBlocks(text: string): string {
   let result = text.trim();
@@ -14,57 +12,42 @@ function stripMarkdownCodeBlocks(text: string): string {
   return result;
 }
 
-interface AnthropicResponse {
-  content: Array<{ type: string; text: string }>;
-  error?: { message: string };
+// Server-side API call helper
+async function callServerAPI(prompt: string): Promise<string> {
+  const response = await fetch('/api/analyze', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ prompt }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.error || `API error: ${response.status}`);
+  }
+
+  const data = await response.json();
+  const textContent = data.content?.find((c: { type: string; text: string }) => c.type === 'text');
+
+  if (!textContent?.text) {
+    throw new Error('No text content in response');
+  }
+
+  return textContent.text;
 }
 
 export async function evaluateResponse(
-  apiKey: string,
+  _apiKey: string, // kept for backwards compatibility, not used
   patient: PatientCase,
   expertAnalysis: string,
   userResponse: UserResponse,
   informationRevealed: string[]
 ): Promise<EvaluationFeedback> {
   const prompt = buildEvaluationPrompt(patient, expertAnalysis, userResponse, informationRevealed);
+  const text = await callServerAPI(prompt);
 
-  const response = await fetch(ANTHROPIC_API_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true',
-    },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-5-20250929',
-      max_tokens: 2000,
-      messages: [
-        {
-          role: 'user',
-          content: prompt,
-        },
-      ],
-    }),
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error?.message || `API error: ${response.status}`);
-  }
-
-  const data: AnthropicResponse = await response.json();
-
-  if (data.error) {
-    throw new Error(data.error.message);
-  }
-
-  const textContent = data.content.find(c => c.type === 'text');
-  if (!textContent) {
-    throw new Error('No text content in response');
-  }
-
-  const evaluation = parseEvaluationResponse(textContent.text);
+  const evaluation = parseEvaluationResponse(text);
   if (!evaluation) {
     throw new Error('Failed to parse evaluation response');
   }
@@ -73,43 +56,12 @@ export async function evaluateResponse(
 }
 
 export async function askQuestion(
-  apiKey: string,
+  _apiKey: string, // kept for backwards compatibility, not used
   question: string,
   context: string
 ): Promise<string> {
-  const response = await fetch(ANTHROPIC_API_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true',
-    },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-5-20250929',
-      max_tokens: 1000,
-      messages: [
-        {
-          role: 'user',
-          content: `${context}\n\nQuestion: ${question}`,
-        },
-      ],
-    }),
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error?.message || `API error: ${response.status}`);
-  }
-
-  const data: AnthropicResponse = await response.json();
-
-  if (data.error) {
-    throw new Error(data.error.message);
-  }
-
-  const textContent = data.content.find(c => c.type === 'text');
-  return textContent?.text || 'No response received';
+  const prompt = `${context}\n\nQuestion: ${question}`;
+  return await callServerAPI(prompt);
 }
 
 export function validateApiKey(apiKey: string): boolean {
@@ -129,49 +81,14 @@ export interface StructuredInsightResponse {
 }
 
 export async function structureInsight(
-  apiKey: string,
+  _apiKey: string, // kept for backwards compatibility, not used
   rawNotes: string
 ): Promise<StructuredInsightResponse> {
   const prompt = buildInsightStructuringPrompt(rawNotes);
-
-  const response = await fetch(ANTHROPIC_API_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true',
-    },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-5-20250929',
-      max_tokens: 2000,
-      messages: [
-        {
-          role: 'user',
-          content: prompt,
-        },
-      ],
-    }),
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error?.message || `API error: ${response.status}`);
-  }
-
-  const data: AnthropicResponse = await response.json();
-
-  if (data.error) {
-    throw new Error(data.error.message);
-  }
-
-  const textContent = data.content.find(c => c.type === 'text');
-  if (!textContent) {
-    throw new Error('No text content in response');
-  }
+  const text = await callServerAPI(prompt);
 
   try {
-    const parsed = JSON.parse(stripMarkdownCodeBlocks(textContent.text));
+    const parsed = JSON.parse(stripMarkdownCodeBlocks(text));
     // Validate category
     if (!VALID_CATEGORIES.includes(parsed.suggestedCategory)) {
       parsed.suggestedCategory = 'Emergency';
@@ -194,51 +111,16 @@ interface GeneratedCard {
 }
 
 export async function generateQuizCards(
-  apiKey: string,
+  _apiKey: string, // kept for backwards compatibility, not used
   expertAnalysis: string,
   sourceMrn: string,
   category: Category
 ): Promise<QuizCard[]> {
   const prompt = buildQuizCardGenerationPrompt(expertAnalysis, category);
-
-  const response = await fetch(ANTHROPIC_API_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true',
-    },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-5-20250929',
-      max_tokens: 2000,
-      messages: [
-        {
-          role: 'user',
-          content: prompt,
-        },
-      ],
-    }),
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error?.message || `API error: ${response.status}`);
-  }
-
-  const data: AnthropicResponse = await response.json();
-
-  if (data.error) {
-    throw new Error(data.error.message);
-  }
-
-  const textContent = data.content.find(c => c.type === 'text');
-  if (!textContent) {
-    throw new Error('No text content in response');
-  }
+  const text = await callServerAPI(prompt);
 
   try {
-    const parsed = JSON.parse(stripMarkdownCodeBlocks(textContent.text));
+    const parsed = JSON.parse(stripMarkdownCodeBlocks(text));
     const cards: QuizCard[] = parsed.cards.map((card: GeneratedCard, index: number) => ({
       id: `${sourceMrn}-${Date.now()}-${index}`,
       type: card.type,
@@ -257,7 +139,7 @@ export async function generateQuizCards(
     }));
     return cards;
   } catch (e) {
-    console.error('Quiz parse error. Raw text:', textContent.text);
+    console.error('Quiz parse error. Raw text:', text);
     throw new Error('Failed to parse quiz cards response: ' + (e instanceof Error ? e.message : 'unknown'));
   }
 }
@@ -265,57 +147,17 @@ export async function generateQuizCards(
 // ===== CASE COMPARISON =====
 
 export async function generateExpertAnalysis(
-  apiKey: string,
+  _apiKey: string, // kept for backwards compatibility, not used
   scenario: string
 ): Promise<ExpertAnalysis> {
   const prompt = buildExpertAnalysisPrompt(scenario);
-  const modelId = 'claude-sonnet-4-5-20250929';
-
-  console.log('Making API request with model:', modelId);
-
-  const response = await fetch(ANTHROPIC_API_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true',
-    },
-    body: JSON.stringify({
-      model: modelId,
-      max_tokens: 2000,
-      messages: [
-        {
-          role: 'user',
-          content: prompt,
-        },
-      ],
-    }),
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    console.error('API Error Response:', response.status, JSON.stringify(errorData, null, 2));
-    const errorMsg = errorData.error?.message || errorData.message || JSON.stringify(errorData);
-    throw new Error(`API Error (${response.status}): ${errorMsg}`);
-  }
-
-  const data: AnthropicResponse = await response.json();
-
-  if (data.error) {
-    throw new Error(data.error.message);
-  }
-
-  const textContent = data.content.find(c => c.type === 'text');
-  if (!textContent) {
-    throw new Error('No text content in response');
-  }
+  const text = await callServerAPI(prompt);
 
   try {
-    const parsed = JSON.parse(stripMarkdownCodeBlocks(textContent.text));
+    const parsed = JSON.parse(stripMarkdownCodeBlocks(text));
     return parsed as ExpertAnalysis;
   } catch (e) {
-    console.error('Parse error. Raw text:', textContent.text);
+    console.error('Parse error. Raw text:', text);
     throw new Error('Failed to parse expert analysis: ' + (e instanceof Error ? e.message : 'unknown'));
   }
 }
@@ -335,7 +177,7 @@ export interface ComparisonFeedback {
 }
 
 export async function compareWithExpert(
-  apiKey: string,
+  _apiKey: string, // kept for backwards compatibility, not used
   scenario: string,
   userInput: CaseComparisonInput,
   expertAnalysis: ExpertAnalysis
@@ -348,48 +190,11 @@ export async function compareWithExpert(
     userInput.userTreatment,
     expertStr
   );
-  const modelId = 'claude-sonnet-4-5-20250929';
 
-  const response = await fetch(ANTHROPIC_API_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true',
-    },
-    body: JSON.stringify({
-      model: modelId,
-      max_tokens: 2000,
-      messages: [
-        {
-          role: 'user',
-          content: prompt,
-        },
-      ],
-    }),
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    console.error('Comparison API Error:', response.status, JSON.stringify(errorData, null, 2));
-    const errorMsg = errorData.error?.message || errorData.message || JSON.stringify(errorData);
-    throw new Error(`API Error (${response.status}): ${errorMsg}`);
-  }
-
-  const data: AnthropicResponse = await response.json();
-
-  if (data.error) {
-    throw new Error(data.error.message);
-  }
-
-  const textContent = data.content.find(c => c.type === 'text');
-  if (!textContent) {
-    throw new Error('No text content in response');
-  }
+  const text = await callServerAPI(prompt);
 
   try {
-    return JSON.parse(stripMarkdownCodeBlocks(textContent.text)) as ComparisonFeedback;
+    return JSON.parse(stripMarkdownCodeBlocks(text)) as ComparisonFeedback;
   } catch {
     throw new Error('Failed to parse comparison feedback');
   }
@@ -405,50 +210,14 @@ export interface ParsedDictation {
 }
 
 export async function parseDictation(
-  apiKey: string,
+  _apiKey: string, // kept for backwards compatibility, not used
   dictatedText: string
 ): Promise<ParsedDictation> {
   const prompt = buildDictationParsePrompt(dictatedText);
-  const modelId = 'claude-sonnet-4-5-20250929';
-
-  const response = await fetch(ANTHROPIC_API_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true',
-    },
-    body: JSON.stringify({
-      model: modelId,
-      max_tokens: 1000,
-      messages: [
-        {
-          role: 'user',
-          content: prompt,
-        },
-      ],
-    }),
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error?.message || `API error: ${response.status}`);
-  }
-
-  const data: AnthropicResponse = await response.json();
-
-  if (data.error) {
-    throw new Error(data.error.message);
-  }
-
-  const textContent = data.content.find(c => c.type === 'text');
-  if (!textContent) {
-    throw new Error('No text content in response');
-  }
+  const text = await callServerAPI(prompt);
 
   try {
-    return JSON.parse(stripMarkdownCodeBlocks(textContent.text)) as ParsedDictation;
+    return JSON.parse(stripMarkdownCodeBlocks(text)) as ParsedDictation;
   } catch {
     throw new Error('Failed to parse dictation');
   }

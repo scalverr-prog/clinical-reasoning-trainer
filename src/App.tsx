@@ -177,7 +177,7 @@ function App() {
   const [showAchievement, setShowAchievement] = useState<string | null>(null);
   const [comboCount, setComboCount] = useState(0);
 
-  const { apiKey, recordCompletedCase, updateStreak, achievements } = useProgressStore();
+  const { recordCompletedCase, updateStreak, achievements } = useProgressStore();
 
   // Mobile sidebar state
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
@@ -203,11 +203,6 @@ function App() {
   const handleSubmitResponse = async (response: UserResponse) => {
     if (!currentCase) return;
 
-    if (!apiKey) {
-      setError('Please add your Anthropic API key in Settings to enable evaluation.');
-      return;
-    }
-
     setUserResponse(response);
     setIsEvaluating(true);
     setError(null);
@@ -216,7 +211,7 @@ function App() {
     try {
       const expertAnalysis = CACHED_ANALYSES[currentCase.mrn] || 'No expert analysis available for this case.';
       const feedback = await evaluateResponse(
-        apiKey,
+        '', // API key handled server-side
         currentCase,
         expertAnalysis,
         response,
