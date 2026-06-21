@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Sparkles, AlertTriangle, Check, ArrowLeft, Mic, MicOff } from 'lucide-react';
 import type { ClinicalInsight, Category } from '../../types';
 import { useInsightStore } from '../../stores/insightStore';
-import { useProgressStore } from '../../stores/progressStore';
+
 import { structureInsight } from '../../services/llmService';
 import { VALID_CATEGORIES } from '../../utils/insightPrompts';
 
@@ -70,7 +70,6 @@ export function InsightForm({ onComplete, onCancel }: InsightFormProps) {
   const recognitionRef = useRef<SpeechRecognition | null>(null);
 
   const { addInsight } = useInsightStore();
-  const { apiKey } = useProgressStore();
 
   // Initialize speech recognition
   useEffect(() => {
@@ -143,16 +142,11 @@ export function InsightForm({ onComplete, onCancel }: InsightFormProps) {
       return;
     }
 
-    if (!apiKey) {
-      setError('Please add your API key in Settings');
-      return;
-    }
-
     setError(null);
     setPhase('processing');
 
     try {
-      const result = await structureInsight(apiKey, rawNotes);
+      const result = await structureInsight('', rawNotes);
 
       const insight: ClinicalInsight = {
         id: `insight-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,

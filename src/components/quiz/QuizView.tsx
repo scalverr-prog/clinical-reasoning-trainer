@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { HelpCircle, Plus, Trophy, ArrowLeft, Sparkles, RefreshCw } from 'lucide-react';
 import type { QuizFilters as QuizFiltersType, Category } from '../../types';
 import { useQuizStore } from '../../stores/quizStore';
-import { useProgressStore } from '../../stores/progressStore';
+
 import { generateQuizCards } from '../../services/llmService';
 import { CACHED_ANALYSES } from '../../data/analyses';
 import { QuizCard } from './QuizCard';
@@ -30,8 +30,6 @@ export function QuizView() {
     getCardStats,
     getDueCards,
   } = useQuizStore();
-
-  const { apiKey } = useProgressStore();
 
   const stats = useMemo(() => getCardStats(), [cards]);
   const dueCards = useMemo(() => getDueCards(), [cards]);
@@ -64,11 +62,6 @@ export function QuizView() {
   };
 
   const handleGenerateCards = async () => {
-    if (!apiKey) {
-      setGenerateError('Please add your API key in Settings');
-      return;
-    }
-
     setIsGenerating(true);
     setGenerateError(null);
 
@@ -82,7 +75,7 @@ export function QuizView() {
       }
 
       const [mrn, analysis] = randomEntry;
-      const newCards = await generateQuizCards(apiKey, analysis, mrn, generateCategory);
+      const newCards = await generateQuizCards('', analysis, mrn, generateCategory);
       addCards(newCards);
       setMode('home');
     } catch (err) {

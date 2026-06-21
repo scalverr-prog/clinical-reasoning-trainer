@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { ArrowLeft, Sparkles, CheckCircle, XCircle, AlertTriangle, Lightbulb, Target, Mic, MicOff, Loader2 } from 'lucide-react';
 import type { CaseComparisonInput, ExpertAnalysis } from '../../types';
-import { useProgressStore } from '../../stores/progressStore';
+
 import { generateExpertAnalysis, compareWithExpert, parseDictation, type ComparisonFeedback } from '../../services/llmService';
 
 // Web Speech API types
@@ -69,8 +69,6 @@ export function CaseComparison({ onComplete, onCancel }: CaseComparisonProps) {
   const [dictationText, setDictationText] = useState('');
   const [interimText, setInterimText] = useState('');
   const recognitionRef = useRef<SpeechRecognition | null>(null);
-
-  const { apiKey } = useProgressStore();
 
   // Initialize speech recognition
   useEffect(() => {
@@ -143,16 +141,12 @@ export function CaseComparison({ onComplete, onCancel }: CaseComparisonProps) {
       setError('No dictation to parse. Please record first.');
       return;
     }
-    if (!apiKey) {
-      setError('Please add your API key in Settings');
-      return;
-    }
 
     setPhase('parsing');
     setError(null);
 
     try {
-      const parsed = await parseDictation(apiKey, textToParse);
+      const parsed = await parseDictation('', textToParse);
       setScenario(parsed.scenario);
       setUserAssessment(parsed.assessment);
       setUserWorkup(parsed.workup);
@@ -174,17 +168,13 @@ export function CaseComparison({ onComplete, onCancel }: CaseComparisonProps) {
       setError('Please provide at least one of: assessment, workup, or treatment plan');
       return;
     }
-    if (!apiKey) {
-      setError('Please add your API key in Settings');
-      return;
-    }
 
     setError(null);
     setPhase('analyzing');
 
     try {
       // Step 1: Generate expert analysis
-      const expert = await generateExpertAnalysis(apiKey, scenario);
+      const expert = await generateExpertAnalysis('', scenario);
       setExpertAnalysis(expert);
       setPhase('comparing');
 
@@ -195,7 +185,7 @@ export function CaseComparison({ onComplete, onCancel }: CaseComparisonProps) {
         userWorkup,
         userTreatment,
       };
-      const comparisonResult = await compareWithExpert(apiKey, scenario, userInput, expert);
+      const comparisonResult = await compareWithExpert('', scenario, userInput, expert);
       setComparison(comparisonResult);
       setPhase('results');
     } catch (err) {
