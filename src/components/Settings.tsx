@@ -1,20 +1,50 @@
-import { useState } from 'react';
-import { Key, User, Trash2, CheckCircle, AlertCircle } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Key, User, Trash2, CheckCircle, AlertCircle, Bell, BellOff, Share2, QrCode, ChevronDown, ChevronUp, Settings as SettingsIcon } from 'lucide-react';
 import { useProgressStore } from '../stores/progressStore';
 import { validateApiKey } from '../services/llmService';
+import { NotificationService } from '../services/notificationService';
+import { ShareAppQRCode } from './shared/ShareAppQRCode';
 
 export function Settings() {
-  const { learnerName, apiKey, setLearnerName, setApiKey, reset } = useProgressStore();
+  const { learnerName, apiKey, notificationPrefs, setLearnerName, setApiKey, setNotificationPrefs, reset } = useProgressStore();
   const [tempName, setTempName] = useState(learnerName);
   const [tempApiKey, setTempApiKey] = useState(apiKey);
   const [saved, setSaved] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | 'unsupported'>(
+    NotificationService.getPermissionStatus()
+  );
+  const [showShareQR, setShowShareQR] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
+
+  useEffect(() => {
+    setNotificationPermission(NotificationService.getPermissionStatus());
+  }, []);
 
   const handleSave = () => {
     setLearnerName(tempName);
     setApiKey(tempApiKey);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
+  };
+
+  const handleEnableNotifications = async () => {
+    try {
+      const permission = await NotificationService.requestPermission();
+      setNotificationPermission(permission);
+      if (permission === 'granted') {
+        setNotificationPrefs({ enabled: true });
+      }
+    } catch (err) {
+      console.error('Failed to request notification permission:', err);
+    }
+  };
+
+  const handleTestNotification = () => {
+    NotificationService.showNotification(
+      'Test Notification',
+      'Notifications are working correctly!'
+    );
   };
 
   const handleReset = () => {
@@ -27,15 +57,15 @@ export function Settings() {
   const isApiKeyValid = tempApiKey ? validateApiKey(tempApiKey) : true;
 
   return (
-    <div className="max-w-2xl mx-auto p-6 space-y-8">
+    <div className="max-w-2xl mx-auto px-4 sm:px-6 py-6 space-y-6 sm:space-y-8">
       <div>
-        <h2 className="text-2xl font-bold text-gray-900">Settings</h2>
-        <p className="text-gray-500 mt-1">Configure your learning experience</p>
+        <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Settings</h2>
+        <p className="text-sm sm:text-base text-gray-500 mt-1">Configure your experience</p>
       </div>
 
       {/* Profile */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+      <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-4 sm:p-6">
+        <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
           <User className="w-5 h-5 text-blue-600" />
           Profile
         </h3>
@@ -56,45 +86,151 @@ export function Settings() {
         </div>
       </div>
 
-      {/* API Key */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-          <Key className="w-5 h-5 text-purple-600" />
-          Anthropic API Key
-        </h3>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            API Key
-          </label>
-          <input
-            type="password"
-            value={tempApiKey}
-            onChange={(e) => setTempApiKey(e.target.value)}
-            placeholder="sk-ant-..."
-            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 ${
-              !isApiKeyValid
-                ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
-                : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
-            }`}
-          />
-          {!isApiKeyValid && (
-            <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
-              <AlertCircle className="w-3 h-3" />
-              API key should start with 'sk-ant-'
-            </p>
+      {/* Advanced Settings (Collapsible) */}
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <button
+          onClick={() => setShowAdvanced(!showAdvanced)}
+          className="w-full p-4 sm:p-6 flex items-center justify-between text-left hover:bg-gray-50 transition-colors"
+        >
+          <div className="flex items-center gap-2">
+            <SettingsIcon className="w-5 h-5 text-gray-500" />
+            <span className="text-base sm:text-lg font-semibold text-gray-900">Advanced Settings</span>
+          </div>
+          {showAdvanced ? (
+            <ChevronUp className="w-5 h-5 text-gray-400" />
+          ) : (
+            <ChevronDown className="w-5 h-5 text-gray-400" />
           )}
-          <p className="mt-2 text-xs text-gray-500">
-            Required for AI-powered evaluation. Get your key from{' '}
-            <a
-              href="https://console.anthropic.com/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-blue-600 hover:underline"
+        </button>
+
+        {showAdvanced && (
+          <div className="px-4 sm:px-6 pb-4 sm:pb-6 border-t border-gray-100 pt-4">
+            <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+              <Key className="w-4 h-4 text-purple-600" />
+              Anthropic API Key
+            </h4>
+            <div>
+              <input
+                type="password"
+                value={tempApiKey}
+                onChange={(e) => setTempApiKey(e.target.value)}
+                placeholder="sk-ant-..."
+                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 ${
+                  !isApiKeyValid
+                    ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
+                    : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
+                }`}
+              />
+              {!isApiKeyValid && (
+                <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3" />
+                  API key should start with 'sk-ant-'
+                </p>
+              )}
+              <p className="mt-2 text-xs text-gray-500">
+                Optional: For AI Consult feature. Get your key from{' '}
+                <a
+                  href="https://console.anthropic.com/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 hover:underline"
+                >
+                  console.anthropic.com
+                </a>
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Notifications */}
+      <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
+        <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+          <Bell className="w-5 h-5 text-amber-600" />
+          Notifications
+        </h3>
+
+        {notificationPermission === 'denied' ? (
+          <div className="bg-gray-50 rounded-lg p-4 flex items-start gap-3">
+            <BellOff className="w-5 h-5 text-gray-400 mt-0.5" />
+            <div>
+              <p className="font-medium text-gray-700">Notifications Blocked</p>
+              <p className="text-sm text-gray-500">
+                Please enable notifications in your browser settings to receive reminders.
+              </p>
+            </div>
+          </div>
+        ) : notificationPermission === 'granted' ? (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-medium text-gray-700">Practice Reminders</p>
+                <p className="text-sm text-gray-500">
+                  Get notified when it's time to practice
+                </p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={notificationPrefs.enabled}
+                  onChange={(e) => setNotificationPrefs({ enabled: e.target.checked })}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+              </label>
+            </div>
+
+            {notificationPrefs.enabled && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Frequency
+                  </label>
+                  <select
+                    value={notificationPrefs.frequency}
+                    onChange={(e) => setNotificationPrefs({ frequency: e.target.value as 'daily' | 'weekly' })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="daily">Daily</option>
+                    <option value="weekly">Weekly</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Preferred Time
+                  </label>
+                  <input
+                    type="time"
+                    value={notificationPrefs.preferredTime}
+                    onChange={(e) => setNotificationPrefs({ preferredTime: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+
+                <button
+                  onClick={handleTestNotification}
+                  className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                >
+                  Send Test Notification
+                </button>
+              </>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <p className="text-sm text-gray-600">
+              Enable notifications to receive daily practice reminders and suggested cases.
+            </p>
+            <button
+              onClick={handleEnableNotifications}
+              className="flex items-center gap-2 px-4 py-2 bg-amber-100 text-amber-700 rounded-lg font-medium hover:bg-amber-200 transition-colors"
             >
-              console.anthropic.com
-            </a>
-          </p>
-        </div>
+              <Bell className="w-4 h-4" />
+              Enable Notifications
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Save Button */}
@@ -113,9 +249,30 @@ export function Settings() {
         )}
       </button>
 
+      {/* Share App */}
+      <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
+        <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+          <Share2 className="w-5 h-5 text-emerald-600" />
+          Share ClinicalPro
+        </h3>
+        <p className="text-sm text-gray-600 mb-4">
+          Share the app with colleagues using a QR code or link.
+        </p>
+        <button
+          onClick={() => setShowShareQR(true)}
+          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-emerald-600 text-white rounded-lg font-medium hover:from-purple-700 hover:to-emerald-700 transition-colors"
+        >
+          <QrCode className="w-4 h-4" />
+          Show QR Code
+        </button>
+      </div>
+
+      {/* Share QR Code Modal */}
+      <ShareAppQRCode isOpen={showShareQR} onClose={() => setShowShareQR(false)} />
+
       {/* Reset Progress */}
-      <div className="bg-red-50 border border-red-200 rounded-xl p-6">
-        <h3 className="text-lg font-semibold text-red-800 mb-2 flex items-center gap-2">
+      <div className="bg-red-50 border border-red-200 rounded-xl p-4 sm:p-6">
+        <h3 className="text-base sm:text-lg font-semibold text-red-800 mb-2 flex items-center gap-2">
           <Trash2 className="w-5 h-5" />
           Reset Progress
         </h3>

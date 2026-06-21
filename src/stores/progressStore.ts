@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { ProgressData, CompletedCase, Achievement } from '../types';
+import type { ProgressData, CompletedCase, Achievement, NotificationPreferences } from '../types';
 
 const ACHIEVEMENTS: Achievement[] = [
   { id: 'first_case', name: 'First Steps', description: 'Complete your first case', icon: '🎯' },
@@ -24,13 +24,14 @@ interface ProgressStore extends ProgressData {
   updateStreak: () => void;
   unlockAchievement: (achievementId: string) => void;
   getAchievements: () => Achievement[];
+  setNotificationPrefs: (prefs: Partial<NotificationPreferences>) => void;
   reset: () => void;
 }
 
 const initialState: ProgressData = {
-  version: 2,
+  version: 7,
   learnerName: '',
-  apiKey: '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',
+  apiKey: '', // Users must provide their own API key
   stats: {
     totalCases: 0,
     averageScore: 0,
@@ -41,6 +42,12 @@ const initialState: ProgressData = {
   categoryProgress: {},
   completedCases: [],
   achievements: [],
+  notificationPrefs: {
+    enabled: false,
+    frequency: 'daily',
+    preferredTime: '09:00',
+    lastNotificationAt: null,
+  },
 };
 
 function isSameDay(date1: string, date2: string): boolean {
@@ -178,22 +185,29 @@ export const useProgressStore = create<ProgressStore>()(
         }));
       },
 
+      setNotificationPrefs: (prefs) =>
+        set((state) => ({
+          notificationPrefs: { ...state.notificationPrefs, ...prefs },
+        })),
+
       reset: () => set(initialState),
     }),
     {
       name: 'clinical-reasoning-progress',
-      version: 2,
-      migrate: (persistedState: unknown, version: number) => {
+      version: 7,
+      migrate: (persistedState: unknown, _version: number) => {
         const state = persistedState as ProgressData;
-        if (version < 2) {
-          // Add default API key if not set
-          return {
-            ...state,
-            version: 2,
-            apiKey: state.apiKey || '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',
-          };
-        }
-        return state;
+        return {
+          ...state,
+          version: 7,
+          apiKey: '', // Clear any previously stored API keys for security
+          notificationPrefs: state.notificationPrefs || {
+            enabled: false,
+            frequency: 'daily',
+            preferredTime: '09:00',
+            lastNotificationAt: null,
+          },
+        };
       },
     }
   )

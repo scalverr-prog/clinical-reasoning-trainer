@@ -87,54 +87,54 @@ export function Dashboard({ cases, onStartCase }: DashboardProps) {
     <div className="min-h-screen">
       {/* Hero Section */}
       <div className="bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white">
-        <div className="max-w-5xl mx-auto px-6 py-12">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
           {/* Stats Row */}
           {stats.totalCases > 0 && (
-            <div className="flex items-center gap-6 mb-8 text-sm">
-              <div className="flex items-center gap-2">
-                <Target className="w-4 h-4 text-green-400" />
-                <span className="text-slate-300">{stats.totalCases} completed</span>
+            <div className="flex flex-wrap items-center gap-3 sm:gap-6 mb-6 sm:mb-8 text-xs sm:text-sm">
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <Target className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-green-400" />
+                <span className="text-slate-300">{stats.totalCases} done</span>
               </div>
-              <div className="flex items-center gap-2">
-                <Zap className="w-4 h-4 text-yellow-400" />
-                <span className="text-slate-300">{stats.averageScore}% avg</span>
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <Zap className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-yellow-400" />
+                <span className="text-slate-300">{stats.averageScore}%</span>
               </div>
               {stats.currentStreak > 0 && (
-                <div className="flex items-center gap-2">
-                  <Flame className="w-4 h-4 text-orange-400" />
-                  <span className="text-slate-300">{stats.currentStreak} day streak</span>
+                <div className="flex items-center gap-1.5 sm:gap-2">
+                  <Flame className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-orange-400" />
+                  <span className="text-slate-300">{stats.currentStreak}d</span>
                 </div>
               )}
             </div>
           )}
 
           {/* Main CTA */}
-          <div className="text-center py-8">
-            <h1 className="text-4xl md:text-5xl font-bold mb-4">
-              What's Being <span className="text-purple-400">Missed?</span>
+          <div className="text-center py-4 sm:py-8">
+            <h1 className="text-2xl sm:text-4xl md:text-5xl font-bold mb-3 sm:mb-4">
+              Sharpen Your <span className="text-purple-400">Clinical Edge</span>
             </h1>
-            <p className="text-xl text-slate-300 mb-8 max-w-2xl mx-auto">
-              Review real clinical cases. Spot the errors. Save the patient.
+            <p className="text-base sm:text-xl text-slate-300 mb-6 sm:mb-8 max-w-2xl mx-auto">
+              Learn from peer-reviewed cases. Build diagnostic expertise.
             </p>
 
             <button
               onClick={handleQuickStart}
-              className="group inline-flex items-center gap-3 bg-purple-600 hover:bg-purple-500 text-white text-xl font-semibold px-8 py-4 rounded-2xl transition-all hover:scale-105 shadow-lg shadow-purple-900/50"
+              className="group inline-flex items-center gap-2 sm:gap-3 bg-purple-600 hover:bg-purple-500 text-white text-base sm:text-xl font-semibold px-5 sm:px-8 py-3 sm:py-4 rounded-xl sm:rounded-2xl transition-all hover:scale-105 shadow-lg shadow-purple-900/50"
             >
-              <Zap className="w-6 h-6" />
-              {selectedCategory ? `Start ${selectedCategory} Case` : 'Start Random Case'}
-              <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+              <Zap className="w-5 h-5 sm:w-6 sm:h-6" />
+              {selectedCategory ? `Start ${selectedCategory}` : 'Start Case'}
+              <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 group-hover:translate-x-1 transition-transform" />
             </button>
 
-            <p className="text-slate-400 text-sm mt-4">
-              {uncompletedCases.length} cases waiting • {cases.length} total
+            <p className="text-slate-400 text-xs sm:text-sm mt-3 sm:mt-4">
+              {uncompletedCases.length} waiting • {cases.length} total
             </p>
           </div>
         </div>
       </div>
 
       {/* Specialty Filter Dropdown */}
-      <div className="max-w-5xl mx-auto px-6 -mt-4 mb-4">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 -mt-2 sm:-mt-4 mb-4">
         <div className="relative" ref={dropdownRef}>
           <button
             onClick={() => setShowDropdown(!showDropdown)}

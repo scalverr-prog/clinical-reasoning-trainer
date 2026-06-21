@@ -1,21 +1,31 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Header } from './components/Header';
+import { Sidebar } from './components/Sidebar';
+import { TopBar } from './components/TopBar';
 import { Dashboard } from './components/Dashboard';
+import { UnifiedDashboard } from './components/UnifiedDashboard';
 import { CasePresentation } from './components/CasePresentation';
 import { ResponseForm } from './components/ResponseForm';
 import { Evaluation } from './components/Evaluation';
 import { ExpertComparison } from './components/ExpertComparison';
 import { ProgressDashboard } from './components/ProgressDashboard';
 import { Settings } from './components/Settings';
+import { InsightView } from './components/insight';
+import { QuizView } from './components/quiz';
+import { LoginForm, SignupForm } from './components/auth';
+import { ProfileView } from './components/profile';
+import { CredentialsView } from './components/credentials';
+import { DocumentsView } from './components/documents';
+import { ConferencesView } from './components/conferences';
+import { ClinicalConsult } from './components/ClinicalConsult';
+import { InstallPWAPrompt } from './components/shared/InstallPWAPrompt';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { categorizeCases } from './utils/categoryMatcher';
 import { evaluateResponse } from './services/llmService';
 import { useProgressStore } from './stores/progressStore';
 import { DEMO_PATIENTS } from './data/cases';
 import { CACHED_ANALYSES } from './data/analyses';
-import type { CaseWithCategory, UserResponse, EvaluationFeedback } from './types';
-import { Sparkles, AlertTriangle, Trophy, Zap, X, Brain, ArrowRight } from 'lucide-react';
-
-type View = 'dashboard' | 'case' | 'progress' | 'settings';
+import type { CaseWithCategory, UserResponse, EvaluationFeedback, View } from './types';
+import { Sparkles, AlertTriangle, Trophy, Zap, X, Brain, ArrowRight, Loader2, Award, Menu } from 'lucide-react';
 type CasePhase = 'review' | 'respond' | 'evaluating' | 'results' | 'expert';
 
 // Format labs content into structured expert analysis
@@ -156,6 +166,7 @@ function generateReferences(caseData: CaseWithCategory, labs: string): string {
 }
 
 function App() {
+  const { isConfigured } = useAuth();
   const [currentView, setCurrentView] = useState<View>('dashboard');
   const [currentCase, setCurrentCase] = useState<CaseWithCategory | null>(null);
   const [casePhase, setCasePhase] = useState<CasePhase>('review');
@@ -167,6 +178,9 @@ function App() {
   const [comboCount, setComboCount] = useState(0);
 
   const { apiKey, recordCompletedCase, updateStreak, achievements } = useProgressStore();
+
+  // Mobile sidebar state
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   const cases = useMemo(() => categorizeCases(DEMO_PATIENTS), []);
 
@@ -380,9 +394,73 @@ function App() {
     );
   };
 
+  // Views that require authentication
+  const protectedViews: View[] = ['credentials', 'documents', 'conferences', 'profile'];
+  const isProtectedView = protectedViews.includes(currentView);
+  const { user } = useAuth();
+
+  // Login/Signup views (no sidebar)
+  if (currentView === 'login' || currentView === 'signup') {
+    if (currentView === 'login') {
+      return <LoginForm onNavigate={setCurrentView} />;
+    }
+    return <SignupForm onNavigate={setCurrentView} />;
+  }
+
+  // Sidebar width for layout calculations
+  const sidebarWidth = 224; // 14rem = 224px (w-56)
+
+  // Handle navigation to protected views
+  const handleNavigate = (view: View) => {
+    const needsAuth = protectedViews.includes(view);
+    if (needsAuth && !user && isConfigured) {
+      // Redirect to login for protected views when not authenticated
+      setCurrentView('login');
+    } else {
+      setCurrentView(view);
+    }
+    // Close mobile sidebar on navigation
+    setIsMobileSidebarOpen(false);
+  };
+
+  // If trying to access protected view without auth, show login prompt
+  const showLoginPrompt = isProtectedView && !user && isConfigured;
+
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header currentView={currentView} onNavigate={setCurrentView} />
+      {/* Mobile Header with Hamburger */}
+      <div className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-white border-b border-gray-200 z-30 flex items-center px-4">
+        <button
+          onClick={() => setIsMobileSidebarOpen(true)}
+          className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+        >
+          <Menu className="w-6 h-6" />
+        </button>
+        <button
+          onClick={() => handleNavigate('dashboard')}
+          className="flex items-center gap-2 ml-3"
+        >
+          <div className="p-1.5 bg-gradient-to-br from-purple-600 to-emerald-600 rounded-lg">
+            <Brain className="w-4 h-4 text-white" />
+          </div>
+          <span className="font-bold text-lg bg-gradient-to-r from-purple-600 to-emerald-600 bg-clip-text text-transparent">
+            ClinicalPro
+          </span>
+        </button>
+      </div>
+
+      {/* Sidebar */}
+      <Sidebar
+        currentView={currentView}
+        onNavigate={handleNavigate}
+        isMobileOpen={isMobileSidebarOpen}
+        onMobileClose={() => setIsMobileSidebarOpen(false)}
+      />
+
+      {/* Top Bar - Desktop only */}
+      <div className="hidden lg:block">
+        <TopBar currentView={currentView} onNavigate={handleNavigate} sidebarWidth={sidebarWidth} />
+      </div>
 
       {/* Achievement Toast */}
       {showAchievement && (
@@ -397,16 +475,94 @@ function App() {
         </div>
       )}
 
-      <main className="pb-20">
-        {currentView === 'dashboard' && (
-          <Dashboard cases={cases} onStartCase={handleStartCase} />
+      {/* Main Content */}
+      <main
+        className="pt-16 pb-20 min-h-screen transition-all duration-300 lg:ml-56"
+      >
+        {/* Login prompt for protected views */}
+        {showLoginPrompt ? (
+          <div className="max-w-md mx-auto mt-20 text-center">
+            <div className="bg-white rounded-2xl shadow-lg p-8 border border-gray-200">
+              <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Award className="w-8 h-8 text-purple-600" />
+              </div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">Sign In Required</h2>
+              <p className="text-gray-600 mb-6">
+                Sign in to access your credentials, documents, and conferences.
+              </p>
+              <div className="space-y-3">
+                <button
+                  onClick={() => setCurrentView('login')}
+                  className="w-full py-3 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 transition-colors"
+                >
+                  Sign In
+                </button>
+                <button
+                  onClick={() => setCurrentView('signup')}
+                  className="w-full py-3 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors"
+                >
+                  Create Account
+                </button>
+              </div>
+              <p className="text-sm text-gray-500 mt-6">
+                You can still use the Learn section without signing in.
+              </p>
+            </div>
+          </div>
+        ) : (
+          <>
+            {currentView === 'dashboard' && (
+              <UnifiedDashboard
+                cases={cases}
+                onStartCase={handleStartCase}
+                onNavigate={handleNavigate}
+              />
+            )}
+            {currentView === 'cases' && (
+              <Dashboard cases={cases} onStartCase={handleStartCase} />
+            )}
+            {currentView === 'case' && renderCaseContent()}
+            {currentView === 'insight' && <InsightView />}
+            {currentView === 'quiz' && <QuizView />}
+            {currentView === 'progress' && <ProgressDashboard />}
+            {currentView === 'settings' && <Settings />}
+            {currentView === 'profile' && <ProfileView />}
+            {currentView === 'credentials' && <CredentialsView />}
+            {currentView === 'documents' && <DocumentsView />}
+            {currentView === 'conferences' && <ConferencesView />}
+            {currentView === 'consult' && <ClinicalConsult />}
+          </>
         )}
-        {currentView === 'case' && renderCaseContent()}
-        {currentView === 'progress' && <ProgressDashboard />}
-        {currentView === 'settings' && <Settings />}
       </main>
+
+      {/* PWA Install Prompt */}
+      <InstallPWAPrompt />
     </div>
   );
 }
 
-export default App;
+// Main App wrapper with AuthProvider
+function AppWrapper() {
+  const { loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 text-blue-600 animate-spin mx-auto mb-4" />
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return <App />;
+}
+
+export default function AppWithAuth() {
+  return (
+    <AuthProvider>
+      <AppWrapper />
+    </AuthProvider>
+  );
+}
