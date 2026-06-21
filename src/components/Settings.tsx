@@ -1,21 +1,18 @@
 import { useState, useEffect } from 'react';
-import { Key, User, Trash2, CheckCircle, AlertCircle, Bell, BellOff, Share2, QrCode, ChevronDown, ChevronUp, Settings as SettingsIcon } from 'lucide-react';
+import { User, Trash2, CheckCircle, Bell, BellOff, Share2, QrCode } from 'lucide-react';
 import { useProgressStore } from '../stores/progressStore';
-import { validateApiKey } from '../services/llmService';
 import { NotificationService } from '../services/notificationService';
 import { ShareAppQRCode } from './shared/ShareAppQRCode';
 
 export function Settings() {
-  const { learnerName, apiKey, notificationPrefs, setLearnerName, setApiKey, setNotificationPrefs, reset } = useProgressStore();
+  const { learnerName, notificationPrefs, setLearnerName, setNotificationPrefs, reset } = useProgressStore();
   const [tempName, setTempName] = useState(learnerName);
-  const [tempApiKey, setTempApiKey] = useState(apiKey);
   const [saved, setSaved] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | 'unsupported'>(
     NotificationService.getPermissionStatus()
   );
   const [showShareQR, setShowShareQR] = useState(false);
-  const [showAdvanced, setShowAdvanced] = useState(false);
 
   useEffect(() => {
     setNotificationPermission(NotificationService.getPermissionStatus());
@@ -23,7 +20,6 @@ export function Settings() {
 
   const handleSave = () => {
     setLearnerName(tempName);
-    setApiKey(tempApiKey);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };
@@ -50,11 +46,8 @@ export function Settings() {
   const handleReset = () => {
     reset();
     setTempName('');
-    setTempApiKey('');
     setShowResetConfirm(false);
   };
-
-  const isApiKeyValid = tempApiKey ? validateApiKey(tempApiKey) : true;
 
   return (
     <div className="max-w-2xl mx-auto px-4 sm:px-6 py-6 space-y-6 sm:space-y-8">
@@ -84,63 +77,6 @@ export function Settings() {
             This will be displayed on your dashboard
           </p>
         </div>
-      </div>
-
-      {/* Advanced Settings (Collapsible) */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <button
-          onClick={() => setShowAdvanced(!showAdvanced)}
-          className="w-full p-4 sm:p-6 flex items-center justify-between text-left hover:bg-gray-50 transition-colors"
-        >
-          <div className="flex items-center gap-2">
-            <SettingsIcon className="w-5 h-5 text-gray-500" />
-            <span className="text-base sm:text-lg font-semibold text-gray-900">Advanced Settings</span>
-          </div>
-          {showAdvanced ? (
-            <ChevronUp className="w-5 h-5 text-gray-400" />
-          ) : (
-            <ChevronDown className="w-5 h-5 text-gray-400" />
-          )}
-        </button>
-
-        {showAdvanced && (
-          <div className="px-4 sm:px-6 pb-4 sm:pb-6 border-t border-gray-100 pt-4">
-            <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-              <Key className="w-4 h-4 text-purple-600" />
-              Anthropic API Key
-            </h4>
-            <div>
-              <input
-                type="password"
-                value={tempApiKey}
-                onChange={(e) => setTempApiKey(e.target.value)}
-                placeholder="sk-ant-..."
-                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 ${
-                  !isApiKeyValid
-                    ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
-                    : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
-                }`}
-              />
-              {!isApiKeyValid && (
-                <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
-                  <AlertCircle className="w-3 h-3" />
-                  API key should start with 'sk-ant-'
-                </p>
-              )}
-              <p className="mt-2 text-xs text-gray-500">
-                Optional: For AI Consult feature. Get your key from{' '}
-                <a
-                  href="https://console.anthropic.com/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-600 hover:underline"
-                >
-                  console.anthropic.com
-                </a>
-              </p>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Notifications */}
@@ -236,8 +172,7 @@ export function Settings() {
       {/* Save Button */}
       <button
         onClick={handleSave}
-        disabled={!isApiKeyValid}
-        className="w-full flex items-center justify-center gap-2 bg-blue-600 text-white py-3 px-6 rounded-xl font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        className="w-full flex items-center justify-center gap-2 bg-blue-600 text-white py-3 px-6 rounded-xl font-medium hover:bg-blue-700 transition-colors"
       >
         {saved ? (
           <>
