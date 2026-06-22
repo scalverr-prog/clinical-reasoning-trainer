@@ -188,7 +188,7 @@ Be thorough and educational in your analysis.`;
             </div>
             <div>
               <h1 className="text-lg sm:text-xl font-semibold text-white tracking-tight">
-                Clinical Case Analysis
+                Clinical Insight
               </h1>
               <p className="text-slate-400 text-sm">{currentDate}</p>
             </div>
